@@ -1,11 +1,11 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Moq;
 using UserManagement.Contracts;
 using UserManagement.Controllers;
 using UserManagement.DataAccess;
 using UserManagement.DataAccess.Entities;
 using UserManagement.DataAccess.Repositories;
+using UserManagement.Services;
 
 namespace UserManagement.Tests
 {
@@ -13,12 +13,11 @@ namespace UserManagement.Tests
     {
         private readonly Mock<IUserRepository> _userRepositoryMock = new();
         private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
-        private readonly Mock<IUserPermissionRepository> _userPermissionRepositoryMock = new();
-        private readonly Mock<IMapper> _mapperMock = new();
+        private readonly Mock<IUserPermissionsService> _userPermissionsServiceMock = new();
         private readonly UsersController _sut;
         public UsersControllerTests()
         {
-            _sut = new(_userRepositoryMock.Object, _permissionRepositoryMock.Object, _userPermissionRepositoryMock.Object, _mapperMock.Object);
+            _sut = new(_userRepositoryMock.Object, _permissionRepositoryMock.Object, _userPermissionsServiceMock.Object);
         }
 
         [Fact]
@@ -110,24 +109,20 @@ namespace UserManagement.Tests
         [Fact]
         public async Task ShouldCreateNewUser()
         {
+            var userId = 1;
             var userDto = new UserDto("Test", "Test1234", true);
-            var user = new User { Id = 1, Username = "Test", Password = "Test1234", Status = true };
-            _userRepositoryMock.Setup(x => x.CreateUserAsync(user)).ReturnsAsync(user.Id);
-            _mapperMock.Setup(mapper => mapper.Map<User>(userDto)).Returns(user);
+            _userRepositoryMock.Setup(x => x.CreateUserAsync(It.IsAny<User>())).ReturnsAsync(userId);
 
             var result = await _sut.CreateUserAsync(userDto);
 
             _userRepositoryMock.Verify(x => x.CreateUserAsync(It.Is<User>(x => x.Username == userDto.Username
             && x.Password == userDto.Password
             && x.Status == userDto.Status)), Times.Once);
-            _mapperMock.Verify(x => x.Map<User>(It.Is<UserDto>(x => x.Username == userDto.Username
-            && x.Password == userDto.Password
-            && x.Status == userDto.Status)), Times.Once);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
             var userResult = Assert.IsType<int>(okResult.Value);
             Assert.NotNull(okResult);
-            Assert.Equal(userResult, user.Id);
+            Assert.Equal(userId, userResult);
         }
 
         [Fact]
@@ -138,48 +133,36 @@ namespace UserManagement.Tests
 
             _userRepositoryMock.Verify(x => x.DeleteUserAsync(It.Is<int>(g => g.Equals(userId))), Times.Once);
 
-            var okResult = Assert.IsType<OkResult>(result);
-            Assert.NotNull(okResult);
+            var acceptedResult = Assert.IsType<AcceptedResult>(result);
+            Assert.NotNull(acceptedResult);
         }
 
         [Fact]
         public async Task ShouldFindAndUpdateUser()
         {
+            var userId = 1;
             var userDto = new UserDto("UpdateTest", "Update1234", false);
-            var user = new User { Id = 1, Username = "Test", Password = "Test1234", Status = true };
-            var updatedUser = new User { Id = 1, Username = userDto.Username, Password = userDto.Password, Status = userDto.Status };
-            _mapperMock.Setup(mapper => mapper.Map<User>(userDto)).Returns(user);
-            _userRepositoryMock.Setup(repo => repo.UpdateUserAsync(user)).ReturnsAsync(updatedUser);
+            var updatedUser = new User { Id = userId, Username = userDto.Username, Password = userDto.Password, Status = userDto.Status };
+            _userRepositoryMock.Setup(repo => repo.UpdateUserAsync(It.IsAny<User>())).ReturnsAsync(updatedUser);
 
-            var result = await _sut.UpdateUserAsync(userDto);
+            var result = await _sut.UpdateUserAsync(userId, userDto);
 
-            _mapperMock.Verify(x => x.Map<User>(It.Is<UserDto>(u => u.Username == updatedUser.Username
-            && u.Password == updatedUser.Password
-            && u.Status == updatedUser.Status)), Times.Once);
+            _userRepositoryMock.Verify(x => x.UpdateUserAsync(It.Is<User>(u => u.Username == userDto.Username
+            && u.Password == userDto.Password
+            && u.Status == userDto.Status
+            && u.Id == userId)), Times.Once);
 
-            _userRepositoryMock.Verify(x => x.UpdateUserAsync(It.Is<User>(u => u.Username == user.Username
-            && u.Password == user.Password
-            && u.Status == user.Status)), Times.Once);
-
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var userResult = Assert.IsType<User>(okResult.Value);
-
-            Assert.NotNull(okResult);
-            Assert.Equal(updatedUser.Username, userResult.Username);
-            Assert.Equal(updatedUser.Password, userResult.Password);
-            Assert.Equal(updatedUser.Status, userResult.Status);
+            var noContentResult = Assert.IsType<NoContentResult>(result);
+            Assert.NotNull(noContentResult);
         }
 
         [Fact]
         public async Task ShouldNotFindAndUpdateUser()
         {
             var userDto = new UserDto("UpdateTest", "Update1234", false);
-            _mapperMock.Setup(mapper => mapper.Map<User>(userDto)).Returns(new User());
             _userRepositoryMock.Setup(repo => repo.UpdateUserAsync(It.IsAny<User>())).ReturnsAsync((User)null);
 
-            var result = await _sut.UpdateUserAsync(userDto);
-
-            _mapperMock.Verify(x => x.Map<User>(It.IsAny<UserDto>()), Times.Once);
+            var result = await _sut.UpdateUserAsync(1, userDto);
 
             _userRepositoryMock.Verify(x => x.UpdateUserAsync(It.IsAny<User>()), Times.Once);
 
@@ -208,10 +191,10 @@ namespace UserManagement.Tests
 
             var result = await _sut.AddUserPermission(userId, permissionId);
 
-            _userPermissionRepositoryMock.Verify(x => x.AddUserPermissionAsync(It.Is<int>(g => g.Equals(userId)), It.Is<int>(x => x.Equals(permissionId))), Times.Once);
+            _userPermissionsServiceMock.Verify(x => x.AddPermissionToUserAsync(It.Is<int>(g => g.Equals(userId)), It.Is<int>(x => x.Equals(permissionId))), Times.Once);
 
-            var okResult = Assert.IsType<OkResult>(result);
-            Assert.NotNull(okResult);
+            var noContentResult = Assert.IsType<NoContentResult>(result);
+            Assert.NotNull(noContentResult);
         }
 
         [Fact]
@@ -222,18 +205,17 @@ namespace UserManagement.Tests
 
             var result = await _sut.RemoveUserPermission(userId, permissionId);
 
-            _userPermissionRepositoryMock.Verify(x => x.RemoveUserPermissionAsync(It.Is<int>(g => g.Equals(userId)), It.Is<int>(x => x.Equals(permissionId))), Times.Once);
+            _userPermissionsServiceMock.Verify(x => x.RemovePermissionFromUserAsync(It.Is<int>(g => g.Equals(userId)), It.Is<int>(x => x.Equals(permissionId))), Times.Once);
 
-            var okResult = Assert.IsType<OkResult>(result);
-            Assert.NotNull(okResult);
+            var acceptedResult = Assert.IsType<AcceptedResult>(result);
+            Assert.NotNull(acceptedResult);
         }
 
         public void Dispose()
         {
             _userRepositoryMock.VerifyNoOtherCalls();
             _permissionRepositoryMock.VerifyNoOtherCalls();
-            _userPermissionRepositoryMock.VerifyNoOtherCalls();
-            _mapperMock.VerifyNoOtherCalls();
+            _userPermissionsServiceMock.VerifyNoOtherCalls();
         }
     }
 }

@@ -1,8 +1,6 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using UserManagement.Attributes;
 using UserManagement.Contracts;
-using UserManagement.DataAccess.Entities;
 using UserManagement.DataAccess.Repositories;
 
 namespace UserManagement.Controllers
@@ -13,12 +11,10 @@ namespace UserManagement.Controllers
     public class PermissionsController : ControllerBase
     {
         private readonly IPermissionRepository _permissionRepository;
-        private readonly IMapper _mapper;
 
-        public PermissionsController(IPermissionRepository permissionRepository, IMapper mapper)
+        public PermissionsController(IPermissionRepository permissionRepository)
         {
             _permissionRepository = permissionRepository;
-            _mapper = mapper;
         }
 
         [HttpGet]
@@ -45,25 +41,24 @@ namespace UserManagement.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePermissionAsync([FromBody] PermissionDto permissionDto)
         {
-            var permission = _mapper.Map<Permission>(permissionDto);
-            var id = await _permissionRepository.CreatePermissionAsync(permission);
+            var id = await _permissionRepository.CreatePermissionAsync(permissionDto.ToEntity());
             return Ok(id);
         }
 
-        [HttpDelete]
-        public async Task<IActionResult> DeletePermissionAsync(int id)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePermissionAsync([FromRoute]int id)
         {
             await _permissionRepository.DeletePermissionAsync(id);
-            return Ok();
+            return Accepted();
         }
 
-        [HttpPut]
-        public async Task<IActionResult> UpdatePermissionAsync([FromBody] PermissionDto permissionDto)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePermissionAsync([FromRoute] int id, [FromBody] PermissionDto permissionDto)
         {
-            var updatedPermission = await _permissionRepository.UpdatePermissionAsync(_mapper.Map<Permission>(permissionDto));
+            var updatedPermission = await _permissionRepository.UpdatePermissionAsync(permissionDto.ToEntity(id));
             if (updatedPermission != null)
             {
-                return Ok(updatedPermission);
+                return NoContent();
             }
             return NotFound();
         }

@@ -39,6 +39,10 @@ namespace UserManagement.DataAccess
                 .HasOne(up => up.Permission)
                 .WithMany(p => p.UserPermissions)
                 .HasForeignKey(up => up.PermissionId);
+
+            modelBuilder.Entity<UserPermission>()
+                .HasIndex(j => new { j.UserId, j.PermissionId })
+                .IsUnique();
         }
 
         public DbSet<User> Users { get; set; }

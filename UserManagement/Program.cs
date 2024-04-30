@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UserManagement.DataAccess;
 using UserManagement.DataAccess.Repositories;
+using UserManagement.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +17,6 @@ var dataAccessSettings = builder.Configuration.GetRequiredSection(nameof(DataAcc
     ?? throw new InvalidOperationException($"{nameof(DataAccessSettings)} not set");
 builder.Services.AddSingleton(dataAccessSettings);
 
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
-
 // Add DB Context
 builder.Services.AddDbContext<DataContext>(options =>
 {
@@ -27,16 +26,13 @@ builder.Services.AddDbContext<DataContext>(options =>
 // Add injections
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
-builder.Services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
+builder.Services.AddScoped<IUserPermissionsService, UserPermissionsService>();
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 

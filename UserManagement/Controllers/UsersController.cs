@@ -1,9 +1,9 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using UserManagement.Attributes;
 using UserManagement.Contracts;
-using UserManagement.DataAccess.Entities;
 using UserManagement.DataAccess.Repositories;
+using UserManagement.Exceptions;
+using UserManagement.Services;
 
 namespace UserManagement.Controllers
 {
@@ -14,18 +14,15 @@ namespace UserManagement.Controllers
     {
         private readonly IUserRepository _userRepository;
         private readonly IPermissionRepository _permissionRepository;
-        private readonly IUserPermissionRepository _userPermissionRepository;
-        private readonly IMapper _mapper;
+        private readonly IUserPermissionsService _userPermissionsService;
 
         public UsersController(IUserRepository userRepository,
             IPermissionRepository permissionRepository,
-            IUserPermissionRepository userPermissionRepository,
-            IMapper mapper)
+            IUserPermissionsService userPermissionsService)
         {
             _userRepository = userRepository;
             _permissionRepository = permissionRepository;
-            _userPermissionRepository = userPermissionRepository;
-            _mapper = mapper;
+            _userPermissionsService = userPermissionsService;
         }
 
         [HttpGet]
@@ -52,25 +49,24 @@ namespace UserManagement.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateUserAsync([FromBody] UserDto userDto)
         {
-            var user = _mapper.Map<User>(userDto);
-            var id = await _userRepository.CreateUserAsync(user);
+            var id = await _userRepository.CreateUserAsync(userDto.ToEntity());
             return Ok(id);
         }
 
-        [HttpDelete]
-        public async Task<IActionResult> DeleteUserAsync(int id)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUserAsync([FromRoute]int id)
         {
             await _userRepository.DeleteUserAsync(id);
-            return Ok();
+            return Accepted();
         }
 
-        [HttpPut]
-        public async Task<IActionResult> UpdateUserAsync([FromBody] UserDto userDto)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUserAsync([FromRoute] int id, [FromBody] UserDto userDto)
         {
-            var updatedUser = await _userRepository.UpdateUserAsync(_mapper.Map<User>(userDto));
+            var updatedUser = await _userRepository.UpdateUserAsync(userDto.ToEntity(id));
             if (updatedUser != null)
             {
-                return Ok(updatedUser);
+                return NoContent();
             }
             return NotFound();
         }
@@ -84,15 +80,41 @@ namespace UserManagement.Controllers
         [HttpPost("{userId}/permissions/{permissionId}")]
         public async Task<IActionResult> AddUserPermission([FromRoute] int userId, [FromRoute] int permissionId)
         {
-            await _userPermissionRepository.AddUserPermissionAsync(userId, permissionId);
-            return Ok();
+            try
+            {
+                await _userPermissionsService.AddPermissionToUserAsync(userId, permissionId);
+            }
+            catch (UserNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (PermissionNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (UserPermissionAlreadyExistsException)
+            {
+                return Conflict();
+            }
+            return NoContent();
         }
 
         [HttpDelete("{userId}/permissions/{permissionId}")]
         public async Task<IActionResult> RemoveUserPermission([FromRoute] int userId, [FromRoute] int permissionId)
         {
-            await _userPermissionRepository.RemoveUserPermissionAsync(userId, permissionId);
-            return Ok();
+            try
+            {
+                await _userPermissionsService.RemovePermissionFromUserAsync(userId, permissionId);
+            }
+            catch (UserNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (PermissionNotFoundException)
+            {
+                return NotFound();
+            }
+            return Accepted();
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Moq;
 using UserManagement.Contracts;
 using UserManagement.Controllers;
@@ -12,11 +11,10 @@ namespace UserManagement.Tests
     public class PermissionsControllerTests : IDisposable
     {
         private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
-        private readonly Mock<IMapper> _mapperMock = new();
         private readonly PermissionsController _sut;
         public PermissionsControllerTests()
         {
-            _sut = new(_permissionRepositoryMock.Object, _mapperMock.Object);
+            _sut = new(_permissionRepositoryMock.Object);
         }
 
         [Fact]
@@ -107,71 +105,60 @@ namespace UserManagement.Tests
         [Fact]
         public async Task ShouldCreateNewPermission()
         {
+            int createdPermissionId = 1;
             var permissionDto = new PermissionDto("Test", "TestDescription");
-            var permission = new Permission { Id = 1, Code = "Test", Description = "TestDescription" };
-            _permissionRepositoryMock.Setup(x => x.CreatePermissionAsync(permission)).ReturnsAsync(permission.Id);
-            _mapperMock.Setup(mapper => mapper.Map<Permission>(permissionDto)).Returns(permission);
+            _permissionRepositoryMock.Setup(x => x.CreatePermissionAsync(It.IsAny<Permission>())).ReturnsAsync(createdPermissionId);
 
             var result = await _sut.CreatePermissionAsync(permissionDto);
 
             _permissionRepositoryMock.Verify(x => x.CreatePermissionAsync(It.Is<Permission>(x => x.Code == permissionDto.Code
             && x.Description == permissionDto.Description)), Times.Once);
-            _mapperMock.Verify(x => x.Map<Permission>(It.Is<PermissionDto>(x => x.Code == permissionDto.Code
-            && x.Description == permissionDto.Description)), Times.Once);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
             var userResult = Assert.IsType<int>(okResult.Value);
             Assert.NotNull(okResult);
-            Assert.Equal(userResult, permission.Id);
+            Assert.Equal(createdPermissionId, userResult);
         }
 
         [Fact]
         public async Task ShouldDeletePermission()
         {
             int permissionId = 1;
+
             var result = await _sut.DeletePermissionAsync(permissionId);
 
             _permissionRepositoryMock.Verify(x => x.DeletePermissionAsync(It.Is<int>(g => g.Equals(permissionId))), Times.Once);
 
-            var okResult = Assert.IsType<OkResult>(result);
-            Assert.NotNull(okResult);
+            var acceptedResult = Assert.IsType<AcceptedResult>(result);
+            Assert.NotNull(acceptedResult);
         }
 
         [Fact]
         public async Task ShouldFindAndUpdatePermission()
         {
+            var permissionId = 1;
             var permissionDto = new PermissionDto("UpdateTest", "UpdateDescription");
-            var permission = new Permission { Id = 1, Code = "Test", Description = "TestDescription" };
             var updatedPermission = new Permission { Id = 1, Code = permissionDto.Code, Description = permissionDto.Description };
-            _mapperMock.Setup(mapper => mapper.Map<Permission>(permissionDto)).Returns(permission);
-            _permissionRepositoryMock.Setup(repo => repo.UpdatePermissionAsync(permission)).ReturnsAsync(updatedPermission);
+            _permissionRepositoryMock.Setup(repo => repo.UpdatePermissionAsync(It.IsAny<Permission>())).ReturnsAsync(updatedPermission);
 
-            var result = await _sut.UpdatePermissionAsync(permissionDto);
+            var result = await _sut.UpdatePermissionAsync(1, permissionDto);
 
-            _mapperMock.Verify(x => x.Map<Permission>(It.Is<PermissionDto>(u => u.Code == updatedPermission.Code
-            && u.Description == updatedPermission.Description)), Times.Once);
+            _permissionRepositoryMock.Verify(x => x.UpdatePermissionAsync(It.Is<Permission>(u => u.Code == permissionDto.Code
+            && u.Description == permissionDto.Description
+            && u.Id == permissionId)), Times.Once);
 
-            _permissionRepositoryMock.Verify(x => x.UpdatePermissionAsync(It.Is<Permission>(u => u.Code == permission.Code
-            && u.Description == permission.Description)), Times.Once);
+            var noContentResult = Assert.IsType<NoContentResult>(result);
 
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var permissionResult = Assert.IsType<Permission>(okResult.Value);
-
-            Assert.NotNull(okResult);
-            Assert.Equal(updatedPermission.Code, permissionResult.Code);
-            Assert.Equal(updatedPermission.Description, permissionResult.Description);
+            Assert.NotNull(noContentResult);
         }
 
         [Fact]
         public async Task ShouldNotFindAndUpdatePermission()
         {
             var permissionDto = new PermissionDto("UpdateTest", "UpdateDescription");
-            _mapperMock.Setup(mapper => mapper.Map<Permission>(permissionDto)).Returns(new Permission());
             _permissionRepositoryMock.Setup(repo => repo.UpdatePermissionAsync(It.IsAny<Permission>())).ReturnsAsync((Permission)null);
 
-            var result = await _sut.UpdatePermissionAsync(permissionDto);
-
-            _mapperMock.Verify(x => x.Map<Permission>(It.IsAny<PermissionDto>()), Times.Once);
+            var result = await _sut.UpdatePermissionAsync(1, permissionDto);
 
             _permissionRepositoryMock.Verify(x => x.UpdatePermissionAsync(It.IsAny<Permission>()), Times.Once);
 
@@ -180,7 +167,6 @@ namespace UserManagement.Tests
         public void Dispose()
         {
             _permissionRepositoryMock.VerifyNoOtherCalls();
-            _mapperMock.VerifyNoOtherCalls();
         }
     }
 }

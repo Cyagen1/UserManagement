@@ -69,6 +69,11 @@ namespace UserManagement.DataAccess.Repositories
         public async Task DeletePermissionAsync(int id)
         {
             var permission = await _context.Permissions.FindAsync(id);
+            if (permission == null)
+            {
+                return;
+            }
+
             _context.Permissions.Remove(permission);
             await _context.SaveChangesAsync();
         }

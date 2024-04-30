@@ -1,6 +1,6 @@
-﻿using Microsoft.Identity.Client;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using UserManagement.Attributes;
 
 namespace UserManagement.DataAccess.Entities
@@ -18,6 +18,7 @@ namespace UserManagement.DataAccess.Entities
         public string Password { get; set; }
         [Required]
         public bool Status { get; set; }
+        [JsonIgnore]
         public List<UserPermission> UserPermissions { get; set; }
     }
 }

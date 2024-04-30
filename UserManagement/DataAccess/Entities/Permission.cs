@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace UserManagement.DataAccess.Entities
 {
@@ -14,6 +15,7 @@ namespace UserManagement.DataAccess.Entities
         [Required]
         [StringLength(100, MinimumLength = 10)]
         public string Description { get; set; }
+        [JsonIgnore]
         public List<UserPermission> UserPermissions { get; set; }
 
     }

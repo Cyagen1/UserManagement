@@ -56,6 +56,11 @@ namespace UserManagement.DataAccess.Repositories
         public async Task DeleteUserAsync(int id)
         {
             var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                return;
+            }
+
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
         }
